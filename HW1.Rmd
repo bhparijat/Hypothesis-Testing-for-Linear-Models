@@ -1,0 +1,137 @@
+---
+title: "HW1"
+author: "Parijat"
+date: "1/16/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r libraries}
+
+library("HistData")
+library("Stat2Data")
+library("ggplot2")
+```
+
+
+
+```{r Problem 1}
+
+# 1.
+emp = data.frame(
+                id = c(1:4),
+                Name = c("Alex","John","Wendy","JJ"),
+                gender = factor(c("Male","Male","female","female") ),
+              stringsAsFactors = FALSE
+              )
+
+#table(sapply(emp,class))
+
+# 2. 
+
+emp_matrix = data.matrix(frame = emp)
+
+#print(emp_matrix)
+
+#factors became numberic and characters became null
+
+ #emp_matrix[,3] = sapply(emp_matrix[,3],as.double)
+
+# 3.
+new_emp = cbind(emp)
+new_emp[,3] = sapply(new_emp[,3], as.double)
+ 
+print(emp)
+ 
+print(new_emp)
+
+# Factor categories given numeric values.
+
+# 4.
+
+data(GaltonFamilies, package = "HistData")
+slr <- lm(childHeight ~ midparentHeight,
+data = GaltonFamilies)
+cat("object slr is " , class(slr))
+#slr is an object of type linear model
+
+print(slr)
+
+slr$residuals
+
+# 5. 
+
+summary = summary(slr)
+
+print(summary)
+
+print(class(summary))
+
+print(summary$sigma)
+
+
+```
+
+```{r Problem 2}
+
+data(Fluorescence, package = "Stat2Data")
+
+#1.a Scatter Plot of Data
+scatter.smooth( x= Fluorescence$Calcium, y = Fluorescence$ProteinProp)
+
+```
+```{r}
+slr_fl = lm(formula = ProteinProp ~ Calcium, data = Fluorescence)
+
+#head(Fluorescence$Calcium)
+#head(slr_fl$effects)
+scatter.smooth(y = slr_fl$fitted.values, x= Fluorescence$Calcium )
+```
+The linear model may serve as a good fit for our objective. However, whether a model should be expected or not depends on how accurate our model is and what other good models we may have.
+
+
+```{r}
+
+
+num = Fluorescence$ProteinProp - 10^(-15)
+logitp = log(num/(1-num))
+
+inf = logitp[logitp == Inf]
+
+
+scatter.smooth(y = logitp, x = Fluorescence$Calcium)
+
+```
+```{r}
+slr_fl_log = lm(
+          formula = logitp~calcium,
+          data = data.frame(
+            calcium = Fluorescence$Calcium,
+            logitp = logitp
+            ))
+
+
+scatter.smooth(
+  x= Fluorescence$Calcium,
+  y= slr_fl_log$fitted.values
+  )
+```
+
+```{r}
+1 - cbind(0.4,0.6)
+
+10^(-15)
+```
+
+
+```{r References}
+# 1. https://www.tutorialspoint.com/r
+
+```
+
+
+
