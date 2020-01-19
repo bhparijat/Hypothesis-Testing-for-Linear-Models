@@ -1,1 +1,1 @@
-This repository contains r scripts for hypothesis testing class
+## This repository contains R scripts for hypothesis testing class
