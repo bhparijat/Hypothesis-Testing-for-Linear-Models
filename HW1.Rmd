@@ -29,49 +29,34 @@ emp = data.frame(
               stringsAsFactors = FALSE
               )
 
-#table(sapply(emp,class))
-
 # 2. 
 
 emp_matrix = data.matrix(frame = emp)
 
-#print(emp_matrix)
-
-#factors became numberic and characters became null
-
- #emp_matrix[,3] = sapply(emp_matrix[,3],as.double)
 
 # 3.
 new_emp = cbind(emp)
 new_emp[,3] = sapply(new_emp[,3], as.double)
- 
-print(emp)
- 
-print(new_emp)
 
 # Factor categories given numeric values.
 
 # 4.
 
 data(GaltonFamilies, package = "HistData")
-slr <- lm(childHeight ~ midparentHeight,
+slr = lm(childHeight ~ midparentHeight,
 data = GaltonFamilies)
 cat("object slr is " , class(slr))
 #slr is an object of type linear model
 
-print(slr)
-
-slr$residuals
+#slr$residuals
 
 # 5. 
 
 summary = summary(slr)
 
-print(summary)
+summary
 
-print(class(summary))
-
-print(summary$sigma)
+summary$sigma
 
 
 ```
@@ -80,11 +65,8 @@ print(summary$sigma)
 
 data(Fluorescence, package = "Stat2Data")
 
-#1.a Scatter Plot of Data
 scatter.smooth( x= Fluorescence$Calcium, y = Fluorescence$ProteinProp)
 
-```
-```{r}
 slr_fl = lm(formula = ProteinProp ~ Calcium, data = Fluorescence)
 
 #head(Fluorescence$Calcium)
@@ -120,18 +102,46 @@ scatter.smooth(
   y= slr_fl_log$fitted.values
   )
 ```
-
 ```{r}
-1 - cbind(0.4,0.6)
+summary(slr_fl)
+summary(slr_fl_log)
 
-10^(-15)
+mean(slr_fl$residuals)
+mean(slr_fl_log$residuals)
 ```
+Second model fits better as it has larger P( > |t|)
+```{r Problem 3}
+data(GaltonFamilies, package = "HistData")
+slr = lm(childHeight ~ midparentHeight,
+data = GaltonFamilies)
+summary = summary(slr)
+std = summary$coefficients[2,2]
+estimate = summary$coefficients[2,1]
+n = length(slr$fitted.values)
 
 
-```{r References}
+summary
+#estimate
+#std
+
+z_statistic = (estimate - 1)/std
+z_statistic
+
+prob = pnorm(z_statistic)
+
+prob
+
+
+```
+## Since pvalue <= 0.025 for alpha = 5% null hypothesis test, we fail to reject the null hypothesis
+## Y = 22.63624 + 0.63736*midparentHeight
+## E[Y] = 22.6362 + 0.6376*E[midparentHeight]
+## E[Y] = 22.6362 + 0.6376*72
+```{r}
+Y.bar = 22.6362 + 0.6376*72
+Y.bar
+```
+# References
 # 1. https://www.tutorialspoint.com/r
-
-```
-
 
 
