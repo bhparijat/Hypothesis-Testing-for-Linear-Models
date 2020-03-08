@@ -1,0 +1,298 @@
+---
+title: "Lab 7"
+author: "Parijat"
+date: "2/19/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+load("/home/parijat/Desktop/Winter 2020/statistics/Statistics 552/galamiss.rda")
+install.packages("Sleuth3")
+library(Amelia)
+library(leaps)
+library(MASS)
+library(glmnet)
+library(Sleuth3)
+data(gala , package = "faraway")
+```
+
+
+## Problem 2.1
+```{r}
+#head(gala)
+lmmod = lm(Species ~ Area + Elevation + Nearest+ Scruz + Adjacent,data = gala,)
+lmmod1 = lm(Species ~ Area + Elevation + Nearest+ Scruz + Adjacent,data = galamiss)
+
+summary(lmmod)
+summary(lmmod1)
+```
+It is noted that the standard error for the explanatory variables goes-up for the complete case analysis.
+
+```{r, warning=FALSE, results='hide'}
+#dim(gala)
+#dim(model.matrix(lmmod1))
+#rowSums(is.na(galamiss))
+cmeans = colMeans(galamiss,na.rm = TRUE)
+#cmeans
+
+gm = galamiss[,]
+#head(gm)
+#gm[1,]
+
+for(i in 3:7){
+  
+   if(is.na(gm[,i]) == TRUE){
+     gm[which(is.na(gm[,i])),i] = cmeans[i]
+   }
+}
+
+lmmod2 = lm(Species ~ Area + Elevation + Nearest+ Scruz + Adjacent,data = gm)
+summary(lmmod2)
+```
+Mean imputation causes standard error and p-values to increase further.    
+```{r}
+which(is.na(galamiss[,3]))
+```
+```{r}
+which(is.na(galamiss[,4]))
+```
+```{r}
+which(is.na(galamiss[,5]))
+```
+```{r}
+which(is.na(galamiss[,6]))
+```
+
+```{r}
+which(is.na(galamiss[,7]))
+```
+```{r}
+lmmod.elevation = lm(Species ~ Area + Nearest+ Scruz + Adjacent,data = galamiss)
+missing_elevation = predict(lmmod.elevation,galamiss[which(is.na(galamiss[,4])),])
+
+
+gm2 = galamiss[,]
+gm2[which(is.na(galamiss[,4])),4] = missing_elevation
+lmmod3 = lm(Species ~ Area + Elevation + Nearest+ Scruz + Adjacent,data = gm2)
+summary(lmmod3)
+```
+It is observed that the p-values and the standard deviation are smaller compared to previous models for each explanatory variables.    
+
+\textbf{Available Case Analysis}
+As observed, elevation is the only variable to contain missing values. Therefore, dropping it from explanatory variables for 6 missing data samples combined with complete case analysis of 24 data samples will form available case analysis.
+```{r}
+lmmod4 = lm(Species ~ Area + Nearest+ Scruz + Adjacent, data = galamiss[which(is.na(galamiss[,4])),])
+summary(lmmod4)
+#dim(model.matrix((lmmod4)))
+```
+```{r}
+overall_adjr2 = summary(lmmod4)$r.squared + summary(lmmod2)$r.squared
+full_model_adjr2 = summary(lmmod)$r.squared
+full_model_adjr2
+overall_adjr2
+```
+
+We can directly infer anything from lmmod4 or lmmod directly. The combined adjusted r squared for the available case analysis is more than the adjusted r squared value for full model.
+
+\textbf{Multiple Imputation}
+
+```{r amelia,results="hide"}
+set.seed(100)
+#which(is.na(galamiss[,4]))
+galamiss_amputed = amelia(galamiss,m=10,p2s = 0)
+
+beta = matrix(0,nrow = 10,ncol = 6)
+se = matrix(0,nrow = 10,ncol = 6)
+for(i in 1:10){
+  
+lmmodel_amputed = lm(Species ~ Area + Elevation + Nearest+ Scruz + Adjacent, data = galamiss_amputed$imputations[[i]])
+
+beta[i,] =  coef(lmmodel_amputed)
+se[i,]  = coef(summary(lmmodel_amputed))[,2]
+}
+results = mi.meld(q =beta, se=se)
+```
+
+## Problem 2.2   
+\textbf{AIC}
+```{r}
+data(prostate , package = "faraway")
+lmmod5 = lm(lpsa ~ ., data = prostate)
+#summary(lmmod5)
+models = regsubsets(lpsa ~ . , data = prostate)
+summary = summary(models)
+n = dim(prostate)[1]
+aic = n*log(summary$rss/n) + (2:9)*2
+summary$which[which.min(aic),]
+```
+As per AIC, the best model with minimum AIC has lcavol,lweight,age,lbph,svi variables.
+```{r}
+which.max(summary$adjr2)
+```
+```{r}
+summary$which[7,]
+```
+It is observed that adjusted R squared is maximized for a model with 7 predictors when gleason variable is excluded.
+```{r}
+summary$cp
+```
+It is observed that cp is closest to p for p = 7 when gleason is excluded.        
+\textbf{Backward elimination}        
+```{r}
+lmmod = lm(lpsa ~ . ,data = prostate)
+summary(lmmod)$coefficients
+```
+```{r}
+lmmod = update(lmmod, . ~ .  - gleason)
+lmmod = update(lmmod, . ~ .  - lcp)
+lmmod = update(lmmod, . ~ .  - pgg45)
+lmmod = update(lmmod, . ~ .  - age)
+lmmod = update(lmmod, . ~ .  - lbph)
+summary(lmmod)$coefficients
+```
+As observed, all other variables have p-values above 0.05. Hence the best model according to backward elimination is one with lcavol,lweight and svi alongwith intercept
+
+\textbf{Forward Selection}
+```{r}
+data(prostate , package = "faraway")
+forward_selection = regsubsets(lpsa ~ . , data = prostate,method = "forward")
+summary = summary(forward_selection)
+n = dim(prostate)[1]
+
+aic = n*log(summary$rss/n) + (2:9)*2
+summary$which[which.min(aic),]
+plot(forward_selection)
+```
+
+The best model obtained with forward selection contains lvacol,lweight, svi, lbh,age. This result is consistent with previous results.    
+## Problem 2.3   
+```{r}
+data(fat, package = "faraway")
+test_index = seq(1,dim(fat)[1],10)
+train_index = 1:dim(fat)[1]
+train_index = train_index[-test_index]
+train_x = fat[train_index,]
+test_x = fat[test_index,]
+
+lm1 = lm(siri ~ . - brozek - density,data = fat)
+test1 = predict(lm1,test_x)
+
+
+models = regsubsets(siri ~ . - brozek - density , data = fat)
+summary = summary(models)
+
+n = dim(fat)[1]
+ 
+bic = n*log(summary$rss/n) + (2:9)*log(n)
+#summary$which[which.min(bic),]
+
+lm_bic = lm(siri ~ weight+adipos+free+chest+abdom+thigh+forearm,data = fat)
+
+lambdas = seq(0, 10,1)
+#dim(fat)
+#head(fat)
+best_lambda = -1
+best_condition = 1000000
+
+train_x = train_x[,c(-1,-3)]
+#train_x = cbind(train_x,intercept =1 )
+
+
+test_x = test_x[,c(-1,-3)]
+#head(test_x)
+#head(train_x)
+X = as.matrix(train_x[,-1],nrow = dim(train_x)[1], ncol = 15)
+
+#head(X)
+for(i in 1:length(lambdas)){
+  l = lambdas[i]
+  #lm_ridge  = lm.ridge(siri ~ . ,data=train_x,lambda = l)
+  lm_ridge = glmnet(X,train_x[,1],standardize = T,alpha = 0,lambda = l)
+  #lm_ridge$beta
+  ev = sort(eigen(t(X) %*% X + diag(x = l , nrow = 15,ncol = 15))$values,decreasing = TRUE)
+  p = dim(X)[2]
+  condition_number = sqrt(ev[1]/ev[p])
+  if(condition_number < best_condition && best_condition > 30){
+    best_condition = condition_number
+    best_lambda = l
+  }
+  
+}
+#best_lambda
+#best_condition
+lm_ridge_best = glmnet(X,train_x[,1],standardize = T,alpha = 0,lambda = best_lambda)
+#lm_ridge_best$beta
+#length(lm_ridge_best$coef)
+test2 = as.matrix(test_x[,-1],nrow = dim(test_x)[1], ncol = 15) %*% lm_ridge_best$beta
+test3 = predict(lm_bic,test_x)
+
+error1 = test1 - test_x[,1]
+error2 = test2 - test_x[,1]
+error3 = test3 - test_x[,1]
+
+
+rss1 = t(error1) %*% error1
+rss2 = t(error2) %*% error2
+rss3 = t(error3) %*% error3
+
+rss1
+rss2[1,1]
+rss3
+```
+The full model has minimum RSS over the test set.     
+\textbf{Extra Credit}
+```{r}
+#head(ex1223)
+#dim(ex1223)
+#colnames(ex1223)
+
+data(ex1223,package = "Sleuth3")
+lme = regsubsets(Income2005 ~ Imagazine+Inewspaper+Ilibrary+MotherEd+FatherEd+FamilyIncome78+Science+Arith+Word+Parag+Numer+Coding+Auto+Math+Mechanic+Elec+AFQT , data = ex1223, method = "backward")
+n = dim(prostate)[1]
+summary = summary(lme)
+aic = n*log(summary$rss/n) + (2:9)*2
+summary$which[which.min(aic),]
+```
+
+It is observed that the best model with backward elimination has Auto,AFQT explanatory variables.
+```{r}
+X = as.matrix(ex1223[,c(2,3,4,5,6,7,11:21)],nrow = dim(ex1223)[1],ncols = 17)
+y = ex1223[,22]
+#head(X)
+lasso.cv = cv.glmnet(X, y = as.numeric(unlist(y)),alpha = 1)
+best_lambda = lasso.cv$lambda[which.min(lasso.cv$cvm)]
+lasso_model = glmnet(X,y,alpha = 1, lambda = best_lambda)
+
+#table(ex1223$Race)
+ex1223 = cbind(ex1223,race1=0)
+ex1223 = cbind(ex1223,race2=0)
+
+for(i in 1:dim(ex1223)[1]){
+  
+  if(ex1223[i,"Race"]==1){
+    ex1223[i,"race1"] = 1
+  }
+  if(ex1223[i,"Race"]==2){
+    ex1223[i,"race2"] = 1
+  }
+}
+
+#head(ex1223[,c("Race","race1","race2")],100)
+#colnames(ex1223)
+lm3 = lm(Income2005 ~ Auto+AFQT+race1+race2+Gender+Educ,data = ex1223)
+summary(lm3)$coefficients
+```
+The race categorical variables seem to be insignificant.
+
+```{r}
+X = cbind(X,ex1223$Gender)
+X = cbind(X,ex1223$Educ)
+X = cbind(X,ex1223$race1)
+X = cbind(X,ex1223$race2)
+best_lasso_model = glmnet(X,y,alpha = 1, lambda = best_lambda)
+```
+I'm not sure how to test significance of variables for lasso regression.     
+## References:    
+1. Some of the scripts have been used from the book chapters mentioned for the assignment

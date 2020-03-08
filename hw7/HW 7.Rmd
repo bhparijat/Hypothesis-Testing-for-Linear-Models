@@ -1,0 +1,352 @@
+---
+title: "HW 7"
+author: "Parijat"
+date: "3/6/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, hide = TRUE}
+library(faraway)
+library(leaps)
+library(MASS)
+library(glmnet)
+library(Sleuth3)
+library(ggplot2)
+library(ncvreg)
+library(nlme)
+load("~/Desktop/Winter 2020/statistics/hw7/training_data.RData")
+load("~/Desktop/Winter 2020/statistics/hw7/testing_data.RData")
+```
+## Problem 2.1     
+```{r}
+#colnames(divusa)
+
+lm_divusa = lm(divorce ~ unemployed+femlab+marriage+birth+military, data = divusa)
+
+data = data.frame(residuals = lm_divusa$residuals, fitted.values = lm_divusa$fitted.values)
+ggplot(data, aes(x=residuals,y=fitted.values))+ geom_point(size=2)
+#summary(lm_divusa)
+```
+
+\begin{center}
+\begin{tabular}{|c|c|}
+\hline
+(Intercept) & 0.4659  \\
+\hline
+unemployed & 0.0505 \\
+\hline
+femlab & < 2e-16 \\
+\hline
+marriage & 6.77e-06 \\
+\hline
+birth & 4.03e-12 \\
+\hline
+military & 0.0647 \\
+\hline
+\end{tabular}
+\end{center}
+
+\textbf{conclusion:} femlab, marriage and birth are found to be significant. 
+```{r}
+#ggplot(data, aes(x=residuals,y=fitted.values))
+
+new_data = data.frame(pred = data$residuals[-dim(data)[1]], succ = data$residuals[-1])
+ggplot(new_data,aes(x =  pred, y = succ ) )+ geom_point(size=1)+ geom_point(color='blue')
+```
+
+As seen from the above plot, it is clear that the errors are correlated.
+
+```{r}
+  lmod1 = gls(divorce ~ unemployed+femlab+marriage+birth+military, data = divusa , correlation = corAR1(form=~1) , method = "ML")
+summary = summary(lmod1)
+#summary[18]
+```
+
+\begin{center}
+\begin{tabular}{|c|c|}
+\hline
+(Intercept) & 2.072911e-01 \\
+\hline
+unemployed & 2.185974e-02 \\
+\hline
+femlab & 1.610994e-03 \\
+\hline
+marriage & 5.561148e-10 \\
+\hline
+birth & 2.641518e-02 \\
+\hline
+military & 2.126774e-01 \\
+\hline
+\end{tabular}
+\end{center}
+Phi-estimate = 0.97.   
+Yes, GLS analysis makes unemployed variable to be significant.
+```{r}
+pairs(divusa)
+```
+
+
+
+## Problem 2.2  
+
+\textbf{ a) }
+```{r}
+
+train = data2[,]
+test = data2_test[,]
+
+#colnames(train)
+levels(train[,2]) = c("Metropolitan","Not_identified","Not_metropolitant")
+
+dummy_lm = lm(WeeklyEarnings ~ . - EdCode - Sex - MaritalStatus , data = train)
+
+X = model.matrix(dummy_lm)
+
+X = cbind(X, Sex = train$Sex, MaritalStatus = train$MaritalStatus )
+
+X = data.frame(cbind(X, WeeklyEarnings = train$WeeklyEarnings))
+
+#colnames(X)
+
+lma = lm(WeeklyEarnings ~ . -Sex - MaritalStatus, data =X[,-1])
+
+lma = update(lma, . ~ . - RegionSouth)
+
+lma = update(lma, . ~ . - MetropolitanStatusNot_identified)
+
+lma = update(lma, . ~ . - EducationAssocDegOccupVocat)
+
+#colnames(model.matrix(lma))
+```
+The variables mentioned above are the most significant ones in this problem obtained after backward elmination.  
+\textbf{ b) }
+```{r}
+#dim(X)
+#colnames(X)
+models = regsubsets(WeeklyEarnings ~ .  - Sex - MaritalStatus , data = X[,-1])
+summary = summary(models)
+
+n = dim(train)[1]
+
+bic = n*log(summary$rss/n) + (2:25)*log(n)
+#summary$which[which.min(bic),]
+
+lmb = lm(WeeklyEarnings ~ Age + JobClassStateGov + EducationBachelorsDegree + MetropolitanStatusNot_metropolitant + EducationAssocDegOccupVocat + EducationDoctorateDegree + EducationMastersDegree +  EducationProfSchoolDegree, data = X[,-1])
+
+#colnames(model.matrix(lmb))
+```
+
+Significant factors obtained from BIC is Age, JobClassStateGov, EducationBachelorsDegree, MetropolitanStatusNot_metropolitant, EducationAssocDegOccupVocat, EducationDoctorateDegree, EducationMastersDegree, EducationProfSchoolDegree.  
+
+\textbf{ c) }
+```{r}
+#colnames(X)
+X_glmnet = as.matrix(X[,c(-1,-26,-27,-28)],nrow = dim(X)[1],ncol = 24)
+Y_glmnet = as.matrix(X[,28],nrow= dim(X)[1],ncol = 1)
+#colnames(X_glment)
+#colnames(Y_glmnet)
+#head(X_glmnet)
+lasso_model = cv.glmnet(X_glmnet,Y_glmnet)
+best_lambda = lasso_model$lambda.1se
+
+lasso_model = glmnet(X_glmnet,Y_glmnet,alpha = 1, lambda = best_lambda)
+coefficients = coef(lasso_model)
+# coefficients
+# coefficients[1,1]
+# coefficients[4,1]
+#head(model.matrix(model))
+```
+
+\begin{center}
+\begin{tabular}{|c|c|}
+\hline
+(Intercept)                  &           507.100434 \\
+\hline
+RegionNortheast                &            46.314562 \\
+\hline
+RegionSouth                    &            -3.714384 \\
+\hline
+RegionWest                  &                0 \\
+\hline
+MetropolitanStatusNot\_identified   &         0   \\
+\hline
+MetropolitanStatusNot\_metropolitant  &   -75.106018 \\
+\hline
+Age                     &                  7.725734 \\
+\hline
+EducationAssocDegOccupVocat      &        17.441525 \\
+\hline
+EducationBachelorsDegree       &         333.428714 \\
+\hline
+EducationDoctorateDegree    &            734.305489 \\
+\hline
+EducationEleventhGrade     &             -62.305195 \\
+\hline
+EducationFifthorSixthGrade    &         -250.549599 \\
+\hline
+EducationFirstSecondThirdOrFourthGrade & -220.046469 \\
+\hline
+EducationHighSchoolDiploma       &       -78.519924 \\
+\hline
+EducationLessThanFirstGrade     &       -132.939177 \\
+\hline
+EducationMastersDegree   &               492.799296  \\
+\hline
+EducationNinthGrade       &             -179.135806 \\
+\hline
+EducationProfSchoolDegree     &          757.479437 \\
+\hline
+EducationSeventhOrEighthGrade   &       -170.676400 \\
+\hline
+EducationSomeCollegeButNoDegree       &    0      \\
+\hline
+EducationTenthGrade         &           -137.088467 \\
+\hline
+EducationTwelthButNoDiploma    &           0 \\      
+\hline
+JobClassLocalGov      &                   -2.548587 \\
+\hline
+JobClassPrivate       &                    0  \\
+\hline
+JobClassStateGov        &                -79.370663 \\
+\hline
+\end{tabular}
+\end{center}
+
+\textbf{ d) }
+```{r}
+# part a model matrix
+
+X_a = cbind( model.matrix(lma)[,-1],
+            Sex = X$Sex, 
+            WeeklyEarnings = X$WeeklyEarnings,
+            MaritalStatus = X$MaritalStatus )
+
+X_b = cbind(
+  Age = X$Age, 
+  JobClassStateGov = X$JobClassStateGov, 
+  EducationBachelorsDegree = X$EducationBachelorsDegree, 
+  MetropolitanStatusNot_metropolitant = X$MetropolitanStatusNot_metropolitant, 
+  EducationAssocDegOccupVocat = X$EducationAssocDegOccupVocat, 
+  EducationDoctorateDegree = X$EducationDoctorateDegree, 
+  EducationMastersDegree = X$EducationMastersDegree, 
+  EducationProfSchoolDegree = X$EducationProfSchoolDegree,
+  Sex = X$Sex, 
+  WeeklyEarnings = X$WeeklyEarnings,
+  MaritalStatus = X$MaritalStatus 
+)
+
+X_c = cbind(X_glmnet,
+      Sex = X$Sex, 
+      WeeklyEarnings = X$WeeklyEarnings,
+      MaritalStatus = X$MaritalStatus 
+)
+
+
+X_a = data.frame(X_a)
+X_b = data.frame(X_b)
+X_c = data.frame(X_c)
+
+lm1 = lm(WeeklyEarnings ~ . , data = X_a)
+lm2 = lm(WeeklyEarnings ~ . , data = X_b)
+lm3 = lm(WeeklyEarnings ~ . , data = X_c)
+
+#summary(lm3)
+```
+**1.** For all the 3 cases, both Sex and MaritalStatus have very small p-values meaning that they are significant.   
+
+\textbf{ e) }
+```{r}
+X_mcp = X_glmnet[,]
+Y_mcp = Y_glmnet
+#colnames(Y_mcp)
+lm_mcp_cv = cv.ncvreg(X_mcp,Y_mcp)
+lm_mcp = ncvreg(X_mcp,Y_mcp,lambda = lm_mcp_cv$lambda.min)
+
+```
+
+\textbf{ f) }
+
+```{r}
+
+colnames_a = colnames(X_a)
+colnames_b = colnames(X_b)
+colnames_c = colnames(X_c)
+colnames_e = colnames(X_mcp)
+
+#colnames_e
+
+sex_ind = which(colnames_a == "Sex")
+MaritalStatus_ind = which(colnames_a == "MaritalStatus")
+WeeklyEarnings_ind = which(colnames_a == "WeeklyEarnings")
+colnames_a = colnames(X_a[,-c(sex_ind,MaritalStatus_ind,WeeklyEarnings_ind)])
+
+
+sex_ind = which(colnames_b == "Sex")
+MaritalStatus_ind = which(colnames_b == "MaritalStatus")
+WeeklyEarnings_ind = which(colnames_b == "WeeklyEarnings")
+colnames_b = colnames(X_b[,-c(sex_ind,MaritalStatus_ind,WeeklyEarnings_ind)])
+
+
+sex_ind = which(colnames_c == "Sex")
+MaritalStatus_ind = which(colnames_c == "MaritalStatus")
+WeeklyEarnings_ind = which(colnames_c == "WeeklyEarnings")
+colnames_c = colnames(X_c[,-c(sex_ind,MaritalStatus_ind,WeeklyEarnings_ind)])
+
+
+
+
+#sex_ind = which(colnames_e == "Sex")
+#MaritalStatus_ind = which(colnames_e == "MaritalStatus")
+#WeeklyEarnings_ind = which(colnames_e == "WeeklyEarnings")
+colnames_e = colnames(X_mcp[,-c(sex_ind,MaritalStatus_ind,WeeklyEarnings_ind)])
+
+
+
+levels(test[,2]) = c("Metropolitan","Not_identified","Not_metropolitant")
+
+test_x = model.matrix(lm(WeeklyEarnings ~ . - EdCode - Sex - MaritalStatus ,data = test))
+test_y = data.matrix(test[,c("WeeklyEarnings")])
+
+test_a = cbind(intercept = 1,test_x[,colnames_a])
+test_b = data.frame(test_x[,colnames_b])
+test_c = cbind(intercept = 1,test_x[,colnames_c])
+
+test_e = test_x[,colnames_e]
+  
+
+test_y_a = test_a %*% coef(lma)
+test_y_b = predict(lmb,test_b)
+test_y_c = test_c %*% coef(lasso_model)
+test_y_e = predict(lm_mcp,test_e)
+
+error_a = test_y_a - test_y
+error_b = test_y_b - test_y 
+error_c = test_y_c - test_y
+error_e = test_y_e - test_y
+
+
+#dim(test_y_a)
+#dim(test_y)
+rss_a = t(error_a) %*% error_a
+rss_b = t(error_b) %*% error_b
+rss_c = t(error_c) %*% error_c
+rss_e = t(error_e) %*% error_e
+
+# rss_a[1,1]
+# rss_b[1,1]
+# rss_c[1,1]
+# rss_e[1,1]
+```
+The residual sum of squares for the 4 models are :   
+**a)** 802494742   
+**b)** 829250620   
+**c)** 828377922   
+**e)** 802631779   
+The best model obtained via backward elimination has the minimum RSS over test-set.
+## References:   
+1. I used some of my code scripts from previous assignment or from lab.

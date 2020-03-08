@@ -1,0 +1,276 @@
+---
+title: "HW 5"
+author: "Parijat"
+date: "2/16/2020"
+output: pdf_document
+---
+
+```{r}
+#install.packages("Matrix")
+data(prostate, package = "faraway")
+
+library("ggplot2")
+library(faraway)
+```
+
+## Problem 2.1    
+```{r}
+head(prostate)
+```
+```{r}
+mod_1 = lm(lpsa ~ . , data = prostate)
+scatter.smooth(y = mod_1$residuals , x=mod_1$fitted.values)
+qqnorm(mod_1$residuals)
+#help(qqnorm)
+```
+a) Non-constance variance noted by looking at residual vs fitted values plot  
+b) Normality assumption seems to be right as the plot is approximately a 45 degree line.  
+c) Can not find any 
+```{r}
+#pairs(prostate)
+Xc = data.matrix(prostate[,1:8])
+X = cbind(Xc,intercept = 1)
+H = X %*% solve(t(X) %*% X) %*% t(X)
+leverage = diag(H)
+
+#head(hatvalues(mod_1))
+#head(leverage)
+
+for(i in 1:8){
+  
+  Xc.imean = mean(Xc[,i])
+  
+  Xc[,i] = Xc[,i] - Xc.imean
+}
+
+J = Xc %*% solve(t(Xc) %*% Xc) %*% t(Xc)
+
+mdist = diag(J)
+
+mdist_hat = leverage - (1/97)
+
+
+#head(mdist)
+#head(mdist_hat)
+
+
+```
+
+\textbf{Mahalanobis distace}
+```{r}
+plot(x = 1:97, y = mdist)
+```
+
+```{r}
+plot(x=1:97, y = leverage)
+```
+
+The plot of of mahalanobis distance and leverages is quite similar as they differ by only a constant factor   
+\textbf{Outlier}
+```{r}
+tres = rstudent(mod_1)
+tres[which.max(abs(tres))]
+```
+```{r}
+qt(0.05/97,97-8-1)
+```
+Since, the sample point 39 has student-residual less than -3.39, we fail to reject that the point is an outlier
+
+\textbf{Influential Distance}
+```{r}
+cooks_dist = cooks.distance(mod_1)
+faraway::halfnorm(cooks_dist)
+```
+
+\textbf{Structure of Model}    
+The qq plot of residuals vs fitted values is almost normal.
+```{r}
+mod_2 = lm(lpsa~lcavol+lweight,data=prostate)
+#summary(mod_2)
+ggplot(prostate, aes(x = lcavol, y = lweight)) +  geom_point(color="blue")+geom_point(data=prostate[c(13,39),],aes(x = lcavol, y = lweight),color="red",size=3)+ geom_point( aes(x = mean(prostate$lcavol,na.rm = TRUE), y = mean(prostate$lweight,na.rm = TRUE)), color="black",size = 3.5)
+```
+```{r}
+leverage2 = hatvalues(model = mod_2)
+mldist2 = leverage2 - 1/97
+center = c(mean(prostate$lcavol),mean(prostate$lweight))
+x13 = c(prostate$lcavol[13],prostate$lweight[13]) - center
+x39 = c(prostate$lcavol[39],prostate$lweight[39]) - center
+eucd13 = t(x13) %*% x13
+eucd39 = t(x39) %*% x39
+
+#eucd_dist = dist(cbind(prostate$lcavol,prostate$lweight),method = "euclidean")
+# eucd_dist[c(13,39)]
+c(eucd13,eucd39)
+```
+
+    
+## Problem 2.2  
+```{r}
+lmod_1 = lm(lpsa ~ .  ,data = prostate)
+X = model.matrix(lmod_1)
+
+ev = sort(eigen(t(X) %*% X)$values,decreasing = TRUE)
+
+p = dim(X)[2]
+condition_number = sqrt(ev[1]/ev[p])
+
+lmod_2 = lm(lpsa ~ 0 + ., data = prostate)
+
+X1 = model.matrix(lmod_2)
+
+#cor(X1)
+
+summary(lmod_2)
+```
+$condition number = 1275.025$. Large condition number shows that there is multicollinearity between explanatory variables.
+
+Following pairs of explanatory variables have high correlation or rather relatively high correlation:
+
+1) gleason and pgg45 : 0.75
+2) lcp and gleason : 0.51
+3) lcp and pgg45 : 0.63
+```{r}
+vif(lmod_1)
+```
+The VIF values are nominal, less than 4. So, we can not conclude multi-collinearity from this factor.
+```{r}
+train_index = sample.int(dim(X)[1],65)
+index = 1:dim(X)[1]
+test_index = c()
+
+for(i in 1:length(index)){
+  if((index[i] %in% train_index) == FALSE){
+    test_index = c(test_index,index[i])
+  }
+}
+
+train_X = X[train_index,]
+
+y_train = as.matrix(c(prostate[train_index,9]),nrow = length(train_index), ncol=1)
+test_X = X[test_index,]
+y_test = as.matrix(c(prostate[test_index,9]), nrow = length(train_index), ncol =1)
+#dim(train_X)
+#dim(test_X)
+
+#dim(2*diag(x=1,9,9))
+lambda = seq(0.1, 10,length.out = 50)
+#lambda
+errors = 1:length(lambda)
+for(i in 1:length(lambda)){
+  
+  A = solve(  (t(train_X) %*% train_X) + lambda[i]*diag(x=1,9,9) )
+  B = t(train_X)
+  #print(A)
+  #print(B)
+  
+  beta_ridge = A %*% B %*% y_train
+  
+  y_hat_test = test_X %*% beta_ridge
+  
+  residual = y_test - y_hat_test
+  
+  error = t(residual) %*% residual
+  
+  errors[i] = error 
+}
+
+#length(lambda )
+#length(errors)
+plot(x = lambda, y = errors)
+
+lambda_min = lambda[which.min(errors)]
+lambda_min
+```
+
+## Problem 2.3  
+```{r}
+#head(cheddar)
+data(cheddar, package = "faraway")
+cheddar_lmod = lm(taste ~ .,data = cheddar)
+summary(cheddar_lmod)$coeff[4,4]
+
+p_value = rep(0,1000)
+for(i in 1:1000){
+  
+  cheddar$Lactic = cheddar$Lactic + rnorm(length(cheddar$Lactic),mean = 0,sd = 0.01)
+  
+  revised_cheddar_lmod = lm(taste ~ ., data = cheddar)
+  p_value[i] =  summary(revised_cheddar_lmod)$coeff[4,4]
+}
+mean(p_value)
+```
+
+1. Since 0.03 > 0.025, we can not reject the null that beta for lactic is zero for a  2 sided 5% significance t-test.    
+2. R command $summary(cheddar_lmod)$coeff[4,4]$
+3. The p-value after running once becomes 0.035 which is still more than 0.025
+4. The average p_value for the case when $sd = 0.01 $ is 0.24. Yes, this much error produces qualitative difference as it increases our confidence for not rejecting null.
+```{r}
+data(cheddar, package = "faraway")
+p_value = rep(0,1000)
+for(i in 1:1000){
+  
+  cheddar$Lactic = cheddar$Lactic + rnorm(length(cheddar$Lactic),mean = 0,sd = 0.1)
+  
+  revised_cheddar_lmod = lm(taste ~ ., data = cheddar)
+  p_value[i] =  summary(revised_cheddar_lmod)$coeff[4,4]
+}
+mean(p_value)
+```
+0.4367636
+The average p_value only increases more, thus adding so much error does make difference in our conclusions. 
+
+## Problem 2.4
+```{r}
+data(fat, package="faraway")
+fat_lmod = lm(brozek ~ age + weight + height + neck + chest + abdom + hip + thigh + knee + ankle + biceps + forearm + wrist, data=fat)
+X = model.matrix(fat_lmod)
+ev = sort(eigen(t(X) %*% X)$values,decreasing = TRUE)
+p = dim(X)[2]
+condition_number = sqrt(ev[1]/ev[p])
+condition_number
+vif(fat_lmod)
+```
+
+\textbf{Removing 39, 42}   
+
+```{r}
+data(fat, package="faraway")
+
+fat = fat[-c(39,42),]
+fat_lmod = lm(brozek ~ age + weight + height + neck + chest + abdom + hip + thigh + knee + ankle + biceps + forearm + wrist, data=fat)
+X = model.matrix(fat_lmod)
+ev = sort(eigen(t(X) %*% X)$values,decreasing = TRUE)
+p = dim(X)[2]
+condition_number = sqrt(ev[1]/ev[p])
+condition_number
+vif(fat_lmod)
+```
+
+It is observed that removing the two points makes the collinearity worse as the condition_number increases and vif values also increase for some of the variables.
+
+```{r}
+data(fat, package="faraway")
+fat_lmod_reduced = lm(brozek ~ age + weight + height, data = fat)
+X_reduced = model.matrix(fat_lmod_reduced)
+ev = sort(eigen(t(X_reduced) %*% X_reduced)$values,decreasing = TRUE)
+p = dim(X_reduced)[2]
+condition_number = sqrt(ev[1]/ev[p])
+condition_number
+vif(fat_lmod_reduced)
+```
+The condition number and vif values are low compared to the full-model.
+```{r}
+x1 = data.frame(age = median(fat$age), weight = median(fat$weight), height = median(fat$height) )
+x2 = data.frame(age = 40, weight = 200, height=73)
+x3 = data.frame(age = 40, weight = 130, height=73)
+
+predict(fat_lmod_reduced, x1, interval="predict")
+predict(fat_lmod_reduced, x2, interval="predict")
+predict(fat_lmod_reduced, x3, interval="predict")
+```
+It is observed for the 3 cases that the width of the range of prediction remains approximately same. This happens because the $x_0$ vector from $$x_{0}^T\beta +- t_{\alpha / 2} \sqrt{1 + x_{0}^T(X^T X)^{-1}x_{0} }$$ does not change much from the median vector. 
+
+## References 
+1. https://www.rdocumentation.org/packages/regclass/versions/1.5/topics/VIF    
+2. http://www.r-tutor.com/elementary-statistics/simple-linear-regression/prediction-interval-linear-regression   
+3. http://www.utstat.toronto.edu/~brunner/oldclass/302f13/lectures/302f13PredictionIntervals-R.pdf  

@@ -1,0 +1,137 @@
+---
+title: "HW4"
+author: "Parijat"
+date: "2/7/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("readr")
+```
+# Problem 1.  
+```{r}
+data(cheddar, package = "faraway")
+fit <- lm(taste ~ . , data = cheddar)
+dim(cheddar)
+```
+
+```{r}
+anova(fit)
+```
+
+```{r}
+?anova
+```
+
+
+1.1 Model tests whether the parameters of the model are significant.   
+
+```{r}
+lm1 = lm(taste ~ Acetic, data = cheddar)
+lm2 = lm(taste ~ H2S, data = cheddar)
+lm3 = lm(taste ~ Lactic, data = cheddar)
+anova(lm1)
+```
+
+```{r}
+anova(lm2)
+```
+
+```{r}
+anova(lm3)
+```
+```{r}
+?anova.lm
+```
+
+When we pass one model with all arguments, the tests are nested and the variance used for calculation is one for full model.
+
+
+## Problem 2.  
+```{r}
+data(punting,package = "faraway")
+
+dim(punting)
+head(punting)
+```
+
+```{r}
+lm_punting = lm(Distance ~ RStr+LStr+RFlex+LFlex,data = punting)
+sm = summary(lm_punting)
+sm
+```
+```{r}
+#? summary(l)
+qt(0.975,13-(4+1))
+qt(0.025,13-(5))
+sm$fstatistic
+```
+
+b) Since no values, are beyond the extreme t-values for 0.025 and 0.975 prob values for t-distribution, they are all significant
+c) As p-value for over all f-statistic is 0.01 which is small, we can say that these predictors are important.
+
+```{r}
+mod_rl = lm(Distance ~ RStr+RFlex+LFlex,data = punting)
+mod_ll = lm(Distance ~ LStr++RFlex+LFlex, data = punting)
+anova(lm_punting,mod_rl)
+anova(lm_punting,mod_ll)
+```
+p_value_right_leg =  0.726    
+p_value_left_leg =  0.3228   
+
+c) Since p-values are different for right leg and left leg,they may have different effect. Also, RSS comes to be different.
+
+```{r}
+anova(lm_punting,mod_rl,mod_ll)
+```
+```{r}
+beta_rstr = lm_punting$coefficients[2]
+best_lstr = lm_punting$coefficients[3]
+```
+ d) A joint confidence interval would be $$(X-K \hat\beta)^{T}(K(XX^T)^{-1}K^T)^{-1}(X-K\hat\beta)\leq m \hat\sigma^2 F_{p+1,n-p-1}( \alpha )$$
+ where $$ K = \begin{bmatrix} 1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0  \end{bmatrix}$$
+ The resulting equation, will give us an ellipsiod and it tells if the null is true, the parameters will lie inside the interval 95% times.
+```{r}
+mod_combined = lm(Distance ~ I(LStr+RStr)+ RFlex + LFlex,data=punting)
+sm = summary(mod_combined)
+#sm
+```
+ 
+ 
+ 
+```{r}
+anova(lm_punting,mod_combined)  
+```
+ 
+ 
+ e) As F-statistic = 0.5804(very low) and p-value for reduced model is lesser than p-value of full-model, we may say that reduced model works atleast as good as full model.
+ 
+ 
+```{r}
+mod_rf = lm(Distance ~ RStr+RFlex+LStr,data = punting)
+mod_lf = lm(Distance ~ LStr+RStr+LFlex, data = punting)
+anova(lm_punting,mod_rf)
+anova(lm_punting,mod_lf)
+```
+
+f) Since p-values are very different for the two models they may contribute differently
+
+g)
+
+
+```{r}
+lm_hang = lm(Hang ~ RStr+LStr+RFlex+LFlex,data = punting)
+summary(lm_hang)
+```
+
+h) No, as response variable is not same.
+
+## 3. 
+```{r}
+
+#load("~/Desktop/Winter 2020/statistics/Statistics 552/HW3Data.RData",verbose=True)
+
+#write.csv("~/Desktop/Winter 2020/statistics/Statistics 552/HW3Data.RData", "~/Desktop/hw3r.csv")
+```
+
