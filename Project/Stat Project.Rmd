@@ -1,0 +1,61 @@
+---
+title: "Stat Project"
+author: "Parijat"
+date: "3/17/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+load("~/Desktop/Winter/final_exam_dataset.RData")
+load("~/Desktop/Winter/final_exam_test_dataset.RData")
+```
+
+
+## Exploratory Analysis
+
+```{r Exploratory Analysis}
+dim(data1)
+
+columns = colnames(data1)
+#lmod = lm(SalePrice ~ . , data = data1)
+
+#table(data1[,56])
+
+df = data1[rowSums(is.na(data1))>0,]
+col_na_count = vector(length = dim(data1)[2])
+
+for(i in 1:dim(data1)[2]){
+  col_na_count[i] = sum(is.na(data1[,i])>0)
+}
+col_with_max_na = which.max(col_na_count)
+#col_with_max_na
+#col_na_count[col_with_max_na]
+#columns[col_with_max_na]
+#head(data1$Fence)
+data2 = data1[,-col_with_max_na]
+#dim(data2)
+#lmod = lm(SalePrice ~ . , data = data2,na.rm=TRUE)
+
+
+unique_values = vector(length = dim(data2)[2])
+
+#length(table(data2$Street))
+c=0
+for(i in 1:dim(data2)[2]){
+  unique_values[i] = length(table(data2[,i]))
+  
+  if(unique_values[i] == 2){
+    c=c+1
+    cat(columns[i],table(data2[,i]))
+    print("\n")
+  }
+}
+c
+#lmod = lm(SalePrice ~ . , data = data2,na.rm=TRUE)
+#unique_values
+```
+
