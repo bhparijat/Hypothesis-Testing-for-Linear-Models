@@ -18,110 +18,50 @@ load("~/Desktop/Winter/Hypothesis-Testing-for-Linear-Models/Project/test.RData")
 ## Exploratory Analysis
 
 ```{r Exploratory Analysis}
-# #dim(data1)
-# 
-# columns = colnames(data1)
-# #lmod = lm(SalePrice ~ . , data = data1)
-# 
-# #table(data1[,56])
-# 
-# df = data1[rowSums(is.na(data1))>0,]
-# col_na_count = vector(length = dim(data1)[2])
-# 
-# for(i in 1:dim(data1)[2]){
-#   col_na_count[i] = sum(is.na(data1[,i])>0)
-# }
-# col_with_max_na = which.max(col_na_count)
-# #col_with_max_na
-# #col_na_count[col_with_max_na]
-# #columns[col_with_max_na]
-# #head(data1$Fence)
-# data2 = data1[,-col_with_max_na]
-# #dim(data2)
-# #lmod = lm(SalePrice ~ . , data = data2,na.rm=TRUE)
-# 
-# unique_values = vector(length = dim(data2)[2])
-# 
-# #length(table(data2$Street))
-# c=0
-# for(i in 1:dim(data2)[2]){
-#   unique_values[i] = length(table(data2[,i]))
-#   
-#   if(unique_values[i] == 2){
-#     c=c+1
-#     #cat(columns[i],table(data2[,i]))
-#   }
-# }
-# data3 = data2[,-5]
-# #head(data3)
-# lmod = lm(SalePrice ~ . , data = data3)
-# #summary(lmod)
-# 
-# X = model.matrix(lmod)
-# dim(X)
-# 
-# #columns3_with_na = vector(length)
-# 
-# colnames_x = colnames(X)
-# 
-# col_na_count = vector(length = dim(data3)[2])
-# 
-# for(i in 1:dim(data3)[2]){
-#   col_na_count[i] = sum(is.na(data3[,i])>0)
-# }
-# col_na_count
 
-#colnames(data1)
 data_u = data1[,-c(21,3,43,8,29)]
 data_i = data1[, c(21,3,43,8,29)]
 colnames_datau = colnames(data_u)
 colnames_datai = colnames(data_i)
 
 
-col_na_count = vector(length = dim(data_u)[2])
+na_count_before = vector(length = dim(data_u)[2])
 unique_values = vector(length = dim(data_u)[2])
+na_count_after = vector(length = dim(data_u)[2])
 
 
 
-for(i in 1:dim(data_u)[2]){
-  col_na_count[i] = sum(is.na(data_u[,i])>0)
-  unique_values[i] = length(table(data_u[,i]))
-}
-#colnames_datau
-data_u = data_u[,-c(48,4)]
-#col_na_count
-colnames_datau = colnames(data_u)
-#colnames_datau
 
+data_u = data_u[,-c(4,48)]
 lm_complete_case = lm(SalePrice ~ . , data = data_u)
 summary = summary(lm_complete_case)
 
 data_u_copy = data_u[,]
 
-for(i in 1:dim(data_u)[2]){
-  
-  column = data_u[,i]
-  
-  t = sort(table(column))
-  
 
- # print(length(t))
-  if(length(t)<=20){
-    
-    data_u[is.na(data_u[,i]),i] = t[[length(t)]]
+for(i in 1:dim(data_u_copy)[2]){
 
-  }else{
+  column = data_u_copy[,i]
 
-    data_u[is.na(data_u[,i]),i] = mean(column)
+  na_count_before[i] = sum(is.na(column))
 
-  }
+  factor_count = length(table(column))
 
-  
+  if(factor_count <=20 && na_count_before[i]>0){
+    lvl = levels(data_u_copy[,i])
+    levels(data_u_copy[,i]) = c(lvl,"None")
+    data_u_copy[is.na(data_u_copy[,i]),i] = "None"
+  } else if(na_count_before[i]>0){
+    #print(na_count_before[i])
+    #print(floor(mean(column,na.rm = TRUE)))
+  data_u_copy[is.na(data_u_copy[,i]),i] = floor(mean(column,na.rm = TRUE))
 }
 
-y = sort(table(data_u[,34]))
-y 
-y[[length(y)]]
+  na_count_after[i] = sum(is.na(data_u_copy[,i]))
+}
+
+
+
 
 ```
 
