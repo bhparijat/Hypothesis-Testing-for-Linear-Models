@@ -6,6 +6,10 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
+library(ggplot2)
+library(Amelia)
+library(glmnet)
+library(MASS)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -15,10 +19,9 @@ load("~/Desktop/Winter/Hypothesis-Testing-for-Linear-Models/Project/test.RData")
 ```
 
 
-## Exploratory Analysis
-
-```{r Exploratory Analysis}
-
+# Explanatory Modelling   
+### Exploratory Analysis   
+```{r}
 data_u = data1[,-c(21,3,43,8,29)]
 data_i = data1[, c(21,3,43,8,29)]
 colnames_datau = colnames(data_u)
@@ -29,20 +32,12 @@ na_count_before = vector(length = dim(data_u)[2])
 unique_values = vector(length = dim(data_u)[2])
 na_count_after = vector(length = dim(data_u)[2])
 
-
-
-
-
 lm_complete_case = lm(SalePrice ~ . , data = data_u[,-c(4,48)])
-summary = summary(lm_complete_case)
+summary_complete_case = summary(lm_complete_case)
 
 data_u_copy = data_u[,]
-
-
-
 factors_useful_na = c("Fence","GarageCond","GarageQual","GarageFinish","GarageType","BsmtCond",
                       "BsmtExposure","BsmtQual")
-
 
 for(col in factors_useful_na){
 
@@ -52,7 +47,7 @@ for(col in factors_useful_na){
   data_u_copy[is.na(data_u_copy[,col]),col] = "Not_Applicable"
   
 }
-
+#
 col = "Electrical"
 column = data_u_copy[,col]
 factor_count = length(table(column))
@@ -62,12 +57,63 @@ data_u_copy[is.na(data_u_copy[,col]),col] = t[dim(t)[1],1]
 
 
 for(col  in c("GarageYrBlt","LotFrontage")){
- 
+
   data_u_copy[is.na(data_u_copy[,col]),col] = floor(mean(data_u_copy[,col],na.rm = TRUE))
 }
 
-sum(is.na(data_u_copy$Electrical))
-sum(is.na(data_u_copy$LotFrontage))
-sum(is.na(data_u_copy$GarageYrBlt))
+# sum(is.na(data_u_copy$Electrical))
+# sum(is.na(data_u_copy$LotFrontage))
+# sum(is.na(data_u_copy$GarageYrBlt))
+
+lm_mean_amputed = lm(SalePrice ~ . , data = data_u_copy[,-c(4,48)])
+summary_amputed = summary(lm_mean_amputed)
+
+summary_amputed$r.squared
+summary_complete_case$r.squared
+dim(model.matrix(lm_mean_amputed))
+```
+```{r}
+plot_data = data.frame(residual = lm_mean_amputed$residuals, fitted_values = lm_mean_amputed$fitted.values)
+
+ggplot(plot_data, aes(x = residual,y=fitted_values))+geom_point()
+```
+```{r}
+residuals = lm_mean_amputed$residuals
+temp_df = cbind(r1 = residuals[-length(residuals)], r2 = residuals[-1])
+```
+```{r}
+qplot(sample = residuals,data = plot_data)
+```
+```{r}
+set.seed(100)
+final_x_matrix = model.matrix(lm_mean_amputed)[,-1]
+#colnames(final_x_matrix)
+final_data_matrix = cbind(final_x_matrix,"SalePrice" = data_u_copy[,"SalePrice"])
+
+lasso_models = cv.glmnet(final_x_matrix,final_data_matrix[,"SalePrice"],standardize = TRUE,alpha = 1)
+
+best_lasso_model = glmnet(final_x_matrix,final_data_matrix[,"SalePrice"],alpha = 1,lambda = lasso_models$lambda.1se)
+
+lasso_model_coef= coef(best_lasso_model)
+main_indices = which(lasso_model_coef!=0)
+
+
+selected_coefficents = c()
+rownames_lasso_coef = rownames(lasso_model_coef)
+
+for(i  in main_indices){
+  cof = lasso_model_coef[i]
+  if(cof!=0 && i>1){
+    selected_coefficents = c(selected_coefficents,rownames_lasso_coef[i])
+    
+  }
+}
+
+selected_coefficents
+```
+```{r}
+
 ```
 
+## References 
+1. https://www.researchgate.net/post/Comparing_R-squared_values_in_two_models_any_help
