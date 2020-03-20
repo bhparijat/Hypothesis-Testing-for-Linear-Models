@@ -6,10 +6,13 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
+library(mgcv)
 library(ggplot2)
-library(Amelia)
-library(glmnet)
+library(faraway)
+library(plyr)
+library(Sleuth3)
 library(MASS)
+library(glmnet)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -86,15 +89,16 @@ qplot(sample = residuals,data = plot_data)
 ```
 ```{r}
 set.seed(100)
-final_x_matrix = model.matrix(lm_mean_amputed)[,-1]
-#colnames(final_x_matrix)
-final_data_matrix = cbind(final_x_matrix,"SalePrice" = data_u_copy[,"SalePrice"])
 
-lasso_models = cv.glmnet(final_x_matrix,final_data_matrix[,"SalePrice"],standardize = TRUE,alpha = 1)
+lasso_x_matrix = model.matrix(lm_mean_amputed)[,-1]
+lasso_data_matrix = cbind(lasso_x_matrix,"SalePrice" = data_u_copy[,"SalePrice"])
 
-best_lasso_model = glmnet(final_x_matrix,final_data_matrix[,"SalePrice"],alpha = 1,lambda = lasso_models$lambda.1se)
+lasso_models = cv.glmnet(lasso_x_matrix,lasso_data_matrix[,"SalePrice"],standardize = TRUE,alpha = 1)
+
+best_lasso_model = glmnet(lasso_x_matrix,lasso_data_matrix[,"SalePrice"],alpha = 1,lambda = lasso_models$lambda.1se)
 
 lasso_model_coef= coef(best_lasso_model)
+
 main_indices = which(lasso_model_coef!=0)
 
 
@@ -111,8 +115,72 @@ for(i  in main_indices){
 
 selected_coefficents
 ```
+
+## Model Checking and Model Formation
 ```{r}
 
+selected_matrix = lasso_data_matrix[,c(selected_coefficents,"SalePrice")]
+#dim(selected_matrix)
+lmod = lm(SalePrice ~ . , data = as.data.frame(selected_matrix))
+residuals = lmod$residuals
+y_hat = lmod$fitted.values
+plot_data_s = data.frame("residuals" = residuals, "y_hat" = y_hat)
+ggplot(plot_data_s, aes(x = residuals, y=y_hat))+geom_point()
+```
+```{r}
+qplot(sample = residuals,data = plot_data_s)
+```
+
+```{r}
+#lmod_ = gls()
+#plot_data_gls = data.frame("residuals" = lmod_, "y_hat" = y_hat)
+#cor(residuals[-1],residuals[-length(residuals)])
+residuals = as.matrix(sort(residuals,decreasing = TRUE))
+outliers = as.numeric(rownames(head(residuals)))
+outliers
+
+
+```
+```{r}
+selected_matrix = selected_matrix[- c(outliers),]
+bc = boxcox(SalePrice ~ . , data = as.data.frame(selected_matrix))
+```
+```{r}
+lambda = bc$x[which.max(bc$y)]
+
+y = selected_matrix[,"SalePrice"]
+y_tranformed = (y^(lambda) - 1 )/ lambda
+selected_matrix[,"SalePrice"] = y_tranformed
+
+lmod = lm(SalePrice ~ . , data = as.data.frame(selected_matrix))
+
+
+plot_data_s = data.frame("residuals" = lmod$residuals, "y_hat" = lmod$fitted.values)
+
+ggplot(plot_data_s, aes(x = residuals, y=y_hat))+geom_point()
+```
+```{r}
+qplot(sample = residuals,data = plot_data_s)
+```
+```{r}
+
+#data_i = data_i[-outliers,]
+#dim(data_i)
+#dim(selected_matrix)
+#length(colnames(selected_matrix))
+main_dataset = cbind(selected_matrix,data_i)
+#length(colnames(main_dataset))
+
+lmod_final = lm(SalePrice ~ . , data = main_dataset)
+plot_data_s = data.frame("residuals" = lmod_final$residuals, "y_hat" = lmod_final$fitted.values)
+
+ggplot(plot_data_s, aes(x = residuals, y=y_hat))+geom_point()
+```
+```{r}
+qplot(sample = residuals,data = plot_data_s)
+```
+```{r}
+summary(lmod_final)$coefficients
 ```
 
 ## References 
