@@ -132,9 +132,6 @@ qplot(sample = residuals,data = plot_data_s)
 ```
 
 ```{r}
-#lmod_ = gls()
-#plot_data_gls = data.frame("residuals" = lmod_, "y_hat" = y_hat)
-#cor(residuals[-1],residuals[-length(residuals)])
 residuals = as.matrix(sort(residuals,decreasing = TRUE))
 outliers = as.numeric(rownames(head(residuals)))
 outliers
@@ -162,25 +159,85 @@ ggplot(plot_data_s, aes(x = residuals, y=y_hat))+geom_point()
 ```{r}
 qplot(sample = residuals,data = plot_data_s)
 ```
+```{r Backward Elimination}
+max_pvalue = 1
+updated_formula = as.formula("SalePrice ~ .")
+
+while(max_pvalue>0.05 || length(coefficient_names) == 2){
+  
+  lmod = update(lmod,updated_formula)
+  
+  summary_lmod = summary(lmod)
+  coefficient_names = rownames(summary_lmod$coefficients)
+  coefficient_pvalues = summary_lmod$coefficients[,4]
+  
+  max_pvalue = coefficient_pvalues[which.max(coefficient_pvalues)]
+  
+  ind = which.max(coefficient_pvalues)[[1]]
+  ind
+  updated_formula = as.formula(paste("SalePrice ~ ", paste(coefficient_names[-c(1,ind)], collapse= "+")))
+  
+}
+
+summary_lmod = summary(lmod)
+summary_lmod$fstatistic
+summary_lmod$r.squared
+
+```
 ```{r}
-
-#data_i = data_i[-outliers,]
-#dim(data_i)
-#dim(selected_matrix)
-#length(colnames(selected_matrix))
-main_dataset = cbind(selected_matrix,data_i)
-#length(colnames(main_dataset))
-
-lmod_final = lm(SalePrice ~ . , data = main_dataset)
-plot_data_s = data.frame("residuals" = lmod_final$residuals, "y_hat" = lmod_final$fitted.values)
-
+plot_data_s = data.frame("residuals" = lmod$residuals, "y_hat" = lmod$fitted.values)
 ggplot(plot_data_s, aes(x = residuals, y=y_hat))+geom_point()
 ```
 ```{r}
-qplot(sample = residuals,data = plot_data_s)
+data_i_w = data_i[-outliers,]
+final_data_matrix = cbind(data_i_w,model.matrix(lmod)[,-1])
+final_data_matrix = cbind(final_data_matrix,"SalePrice"=selected_matrix[,"SalePrice"])
+
+#dim(final_data_matrix)
+#colnames(final_data_matrix)
+final_lm = lm(SalePrice ~ . , data = final_data_matrix)
+#dim(model.matrix(final_lm))
+summary_final_lm = summary(final_lm)
+
+coef_values = summary_final_lm$coefficients[,4]
+insignificant_vars = names(coef_values[which(coef_values>0.05)])
+#length(insignificant_vars)
+summary_final_lm
+length(rownames(summary_final_lm$coefficients))
+dim
 ```
 ```{r}
-summary(lmod_final)$coefficients
+
+final_data_matrix = model.matrix(final_lm)
+#dim(final_data_matrix)
+final_data_matrix = cbind(final_data_matrix,"SalePrice" = selected_matrix[,"SalePrice"])
+anova_summary = anova(final_lm)
+ronames = rownames(anova_summary[which(anova_summary[,5]>0.05),])
+
+final_lm_names = colnames(final_data_matrix)
+length(final_lm_names)
+reduced_model_names = c()
+
+for(c in final_lm_names){
+  if((c %in% ronames) == FALSE){
+    reduced_model_names = c(reduced_model_names,c)
+  }
+
+}
+
+reduced_model_names = reduced_model_names[-c(1,length(reduced_model_names))]
+reduced_model_names
+#head(final_data_matrix)
+```
+```{r}
+formulalm = as.formula(paste("SalePrice ~",paste(reduced_model_names,collapse = "+")))
+final_lm2 = lm(formulalm,data = as.data.frame(final_data_matrix))
+summary(final_lm2)$r.squared
+
+```
+
+```{r}
+anova(final_lm,final_lm2)
 ```
 
 ## References 
