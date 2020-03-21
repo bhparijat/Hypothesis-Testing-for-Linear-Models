@@ -1,0 +1,186 @@
+---
+title: "Stat Project 2"
+author: "Parijat"
+date: "3/20/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(mgcv)
+library(ggplot2)
+library(faraway)
+library(plyr)
+library(Sleuth3)
+library(MASS)
+library(glmnet)
+```
+
+```{r}
+load("~/Desktop/Winter/Hypothesis-Testing-for-Linear-Models/Project/train.RData")
+load("~/Desktop/Winter/Hypothesis-Testing-for-Linear-Models/Project/test.RData")
+```
+
+```{r}
+train = data1[,]
+test = data1[,]
+```
+
+```{r}
+
+na_count_train = vector(length = dim(train)[2])
+na_count_test = vector(length = dim(train)[2])
+
+for(i in 1:dim(train)[2]){
+  na_count_train[i] = sum(is.na(train[,i]))
+  na_count_test[i] = sum(is.na(test[,i]))
+}
+
+factors_useful_na = c("Fence","GarageCond","GarageQual","GarageFinish","GarageType","BsmtCond",
+                      "BsmtExposure","BsmtQual")
+
+for(col in factors_useful_na){
+  
+  lvl = levels(train[,col])
+  levels(train[,col]) = c(lvl,"Not_Applicable")
+  train[is.na(train[,col]),col] = "Not_Applicable"
+  
+  
+  lvl = levels(test[,col])
+  levels(test[,col]) = c(lvl,"Not_Applicable")
+  test[is.na(test[,col]),col] = "Not_Applicable"
+
+}
+
+#head(test[,factors_useful_na])
+
+
+
+col = "Electrical"
+
+
+column = train[,col]
+factor_count = length(table(column))
+t = as.data.frame(sort(table(column)))
+train[is.na(train[,col]),col] = t[dim(t)[1],1]
+
+
+column = test[,col]
+factor_count = length(table(column))
+t = as.data.frame(sort(table(column)))
+test[is.na(test[,col]),col] = t[dim(t)[1],1]
+
+
+
+for(col  in c("GarageYrBlt","LotFrontage")){
+
+  train[is.na(train[,col]),col] = floor(mean(train[,col],na.rm = TRUE))
+  test[is.na(test[,col]),col] = floor(mean(test[,col],na.rm = TRUE))
+}
+
+
+for(i in 1:dim(train)[2]){
+  na_count_train[i] = sum(is.na(train[,i]))
+  na_count_test[i] = sum(is.na(test[,i]))
+}
+na_count_test
+na_count_train
+
+```
+```{r}
+#colnames(train)
+lmod = lm(SalePrice ~ . , data = train[,-c(5,53)])
+
+e = train$SalePrice - lmod$fitted.values
+rmse_train = sqrt((t(e) %*% e) / dim(train)[1])
+
+#summary_anova = anova(lmod)
+```
+
+```{r}
+train_x = model.matrix(lmod)
+train_y = train[,"SalePrice"]
+dummy_test = lm(SalePrice ~ . , data = test[,-c(5,53)])
+
+test_x = model.matrix(dummy_test)
+
+test_y = test[,"SalePrice"]
+
+#colnames(train_x)
+
+
+
+#test = cbind("intercept"=1, test_x)
+#colnames(test_x)
+
+```
+
+
+```{r}
+lasso_models = cv.glmnet(train_x,train_y,standardize = TRUE,alpha = 1)
+
+best_lasso_model = glmnet(train_x,train_y,alpha = 1,lambda = lasso_models$lambda.1se)
+
+lasso_model_coef= coef(best_lasso_model)
+
+main_indices = which(lasso_model_coef!=0)
+
+
+selected_coefficents = c()
+rownames_lasso_coef = rownames(lasso_model_coef)
+
+for(i  in main_indices){
+  cof = lasso_model_coef[i]
+  if(cof!=0 && i>1){
+    selected_coefficents = c(selected_coefficents,rownames_lasso_coef[i])
+    
+  }
+}
+
+selected_coefficents
+```
+
+
+```{r}
+selected_train = train_x[,selected_coefficents]
+col_na = "BldgTypeDuplex"
+#which(colnames(selected_train) == col_na)
+selected_train = selected_train[,-22]
+
+lmod = lm(SalePrice ~ . , data=as.data.frame(cbind(selected_train,"SalePrice" = train_y)))
+e = train$SalePrice - lmod$fitted.values
+rmse_train = sqrt((t(e) %*% e) / dim(train)[1])
+rmse_train[1,1]
+
+test_x = test_x[,selected_coefficents]
+# length(colnames(test_x))
+# length(coef(lmod))
+
+
+
+test_y_hat = test_x %*% coef(lmod)
+
+
+e = test$SalePrice - test_y_hat
+
+rmse_test = sqrt((t(e) %*% e) / dim(test)[1])
+rmse_test[1.1]
+```
+```{r Rdige Regression}
+lm_ridge = cv.glmnet(selected_train,train_y,alpha = 0,standardize = TRUE)
+lm_ridge = glmnet(selected_train,train_y,alpha = 0,standardize = TRUE,lambda = lm_ridge$lambda.1se)
+
+train_y_hat = cbind("intercept"=1,selected_train) %*% coef(lm_ridge)
+e = train$SalePrice - train_y_hat
+
+
+rmse_train = sqrt((t(e) %*% e) / dim(train)[1])
+rmse_train[1,1]
+
+test_y_hat = test_x %*% coef(lm_ridge)
+
+e = test$SalePrice - test_y_hat
+
+rmse_test = sqrt((t(e) %*% e) / dim(test)[1])
+rmse_test[1,1]
+```
+
